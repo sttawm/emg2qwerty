@@ -436,17 +436,16 @@ gcloud projects add-iam-policy-binding $PROJECT_ID \
 
 ## Next Steps
 
-- [ ] Complete GCP setup (see `GCP_SETUP.md`)
+- [ ] Run teammate setup: `cd bootstrap && ./setup_teammate.sh`
 - [ ] Test local training
-- [ ] Build and push Docker image
 - [ ] Submit first Vertex AI job
 - [ ] Setup TensorBoard monitoring
-- [ ] Configure automatic backups to GCS
 
 ## Additional Resources
 
-- **GCP Setup**: `GCP_SETUP.md`
+- **Teammate Setup**: `TEAMMATE_SETUP.md`
+- **Team Lead Guide**: `TEAM_LEAD_GUIDE.md`
+- **Quick Start**: `VERTEX_QUICK_START.md`
 - **TensorBoard**: `TENSORBOARD.md`
-- **Original README**: `README.md`
 - **Vertex AI Docs**: https://cloud.google.com/vertex-ai/docs/training/custom-training
 - **PyTorch Lightning**: https://lightning.ai/docs/pytorch/stable/
