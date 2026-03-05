@@ -25,6 +25,9 @@ build
 dist
 *.egg-info
 
+# Personal teammate configuration (gitignored for team setup)
+bootstrap/.teammate_config.env
+
 # mypy
 .mypy_cache/
 .dmypy.json

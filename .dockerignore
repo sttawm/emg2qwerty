@@ -1,0 +1,59 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info
+dist
+build
+.pytest_cache
+.coverage
+htmlcov
+
+# Jupyter
+*.ipynb
+.ipynb_checkpoints
+training_notebook.ipynb
+Colab_setup.ipynb
+
+# Data and logs (these should be in GCS)
+data/
+logs/
+*.h5
+*.hdf5
+*.ckpt
+*.pt
+*.pth
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Docs
+*.md
+README.md
+LICENSE
+docs/
+
+# CI/CD
+.github
+.pre-commit-config.yaml
+
+# Environment
+.env
+.venv
+venv/
+env/
+ENV/
