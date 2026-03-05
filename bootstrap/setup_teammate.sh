@@ -151,7 +151,11 @@ gsutil iam ch serviceAccount:${VERTEX_SA}:objectViewer gs://${SHARED_DATA_BUCKET
 echo "Granting write access to logs bucket..."
 gsutil iam ch serviceAccount:${VERTEX_SA}:objectAdmin gs://${SHARED_LOGS_BUCKET}
 
+echo "Granting you TensorBoard access..."
+gsutil iam ch user:${TEAMMATE_EMAIL}:objectViewer gs://${SHARED_LOGS_BUCKET}
+
 echo -e "${GREEN}✓${NC} Vertex AI service account configured"
+echo -e "${GREEN}✓${NC} TensorBoard access granted to $TEAMMATE_EMAIL"
 
 # Step 6: Verify access to shared resources
 echo ""

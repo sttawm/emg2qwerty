@@ -58,8 +58,14 @@ echo "Starting background log sync to GCS..."
 (
     while true; do
         sleep 30
+        # Check both /tmp/logs and /app/logs for compatibility
         if [ -d "/tmp/logs" ]; then
-            gsutil -m rsync -r /tmp/logs/ gs://${SHARED_LOGS_BUCKET}/logs/ 2>/dev/null || true
+            echo "[$(date)] Syncing /tmp/logs to gs://${SHARED_LOGS_BUCKET}/logs/"
+            gsutil -m rsync -r /tmp/logs/ gs://${SHARED_LOGS_BUCKET}/logs/ || echo "Warning: Log sync failed"
+        fi
+        if [ -d "/app/logs" ]; then
+            echo "[$(date)] Syncing /app/logs to gs://${SHARED_LOGS_BUCKET}/logs/"
+            gsutil -m rsync -r /app/logs/ gs://${SHARED_LOGS_BUCKET}/logs/ || echo "Warning: Log sync failed"
         fi
     done
 ) &
@@ -67,7 +73,12 @@ LOG_SYNC_PID=$!
 
 # Run training with cluster=vertex
 # Explicitly override dataset.root to use downloaded data location
-python -m emg2qwerty.train cluster=vertex dataset.root=/tmp/data "$@"
+# Override hydra output directory to ensure logs go to /tmp/logs for syncing
+python -m emg2qwerty.train \
+  cluster=vertex \
+  dataset.root=/tmp/data \
+  hydra.run.dir=/tmp/logs/${EXPERIMENT_NAME}/${now:%Y-%m-%d}/${now:%H-%M-%S} \
+  "$@"
 
 echo "Training completed"
 
@@ -76,11 +87,21 @@ kill $LOG_SYNC_PID 2>/dev/null || true
 
 # Final sync of logs to GCS
 echo "Final log sync to GCS..."
+SYNCED=false
 if [ -d "/tmp/logs" ]; then
+    echo "Syncing /tmp/logs to GCS..."
     gsutil -m rsync -r /tmp/logs/ gs://${SHARED_LOGS_BUCKET}/logs/
+    SYNCED=true
+fi
+if [ -d "/app/logs" ]; then
+    echo "Syncing /app/logs to GCS..."
+    gsutil -m rsync -r /app/logs/ gs://${SHARED_LOGS_BUCKET}/logs/
+    SYNCED=true
+fi
+if [ "$SYNCED" = true ]; then
     echo "Logs synced to gs://${SHARED_LOGS_BUCKET}/logs/"
 else
-    echo "Warning: No logs found at /tmp/logs"
+    echo "Warning: No logs found at /tmp/logs or /app/logs"
 fi
 
 echo "Training job finished"
