@@ -75,13 +75,6 @@ gcloud ai custom-jobs stream-logs JOB_NAME --region=us-central1
 - Your GPU compute time only (~$0.35/hour for T4, ~$2.50/hour for V100)
 - Use spot instances with `--spot` to save ~70%
 
-**Team lead pays for:**
-- Dataset storage (~$0.02/GB/month)
-- Logs storage
-
-**Free credits:**
-- New GCP accounts get $300 free credits for 90 days
-
 ## Common Commands
 
 ```bash
@@ -103,21 +96,6 @@ python vertex_submit.py --spot
 # Parameter sweep
 python vertex_submit.py --multirun trainer.max_epochs=50,100,200
 ```
-
-## Troubleshooting
-
-**"GCP_PROJECT_ID not set"**
-- Run: `cd bootstrap && ./setup_teammate.sh`
-
-**"Permission denied" on buckets**
-- Ask team lead to run: `./grant_access.sh your-email@gmail.com`
-
-**Docker not running**
-- Open Docker Desktop: `open -a Docker`
-
-**Need help?**
-- Check: `TRAINING_GUIDE.md` for detailed docs
-- Or: `VERTEX_QUICK_START.md` for quick reference
 
 ## What Gets Shared
 
