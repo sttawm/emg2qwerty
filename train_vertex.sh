@@ -35,13 +35,18 @@ echo "Working directory: $(pwd)"
 echo "Downloading data from GCS..."
 mkdir -p /tmp/data
 echo "Copying gs://${SHARED_DATA_BUCKET}/data/ to /tmp/data/"
-gsutil -m rsync -r gs://${SHARED_DATA_BUCKET}/data/ /tmp/data/
 
-echo "Data downloaded successfully"
-echo "Dataset files:"
-ls -lh /tmp/data/ | head -10
-echo "..."
-echo "Total data size: $(du -sh /tmp/data/ | cut -f1)"
+if gsutil -m rsync -r gs://${SHARED_DATA_BUCKET}/data/ /tmp/data/; then
+    echo "Data downloaded successfully"
+    echo "Dataset files:"
+    ls -lh /tmp/data/ | head -10
+    echo "..."
+    echo "Total data size: $(du -sh /tmp/data/ | cut -f1)"
+    echo "File count: $(ls -1 /tmp/data/*.hdf5 2>/dev/null | wc -l) .hdf5 files"
+else
+    echo "ERROR: Failed to download data from GCS"
+    exit 1
+fi
 
 # Check if running on GPU
 python -c "import torch; print('CUDA available:', torch.cuda.is_available()); print('Device:', torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'CPU')"
@@ -61,7 +66,8 @@ echo "Starting background log sync to GCS..."
 LOG_SYNC_PID=$!
 
 # Run training with cluster=vertex
-python -m emg2qwerty.train cluster=vertex "$@"
+# Explicitly override dataset.root to use downloaded data location
+python -m emg2qwerty.train cluster=vertex dataset.root=/tmp/data "$@"
 
 echo "Training completed"
 

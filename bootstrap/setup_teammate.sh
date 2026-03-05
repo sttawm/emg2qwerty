@@ -135,9 +135,27 @@ fi
 echo "Configuring Docker authentication..."
 gcloud auth configure-docker ${GCP_REGION}-docker.pkg.dev --quiet
 
-# Step 5: Verify access to shared resources
+# Step 5: Grant Vertex AI service account access to shared buckets
 echo ""
-echo "Step 5: Verifying access to shared resources..."
+echo "Step 5: Granting Vertex AI service account access..."
+echo "======================================="
+
+# Get project number (needed for service account email)
+PROJECT_NUMBER=$(gcloud projects describe $USER_PROJECT_ID --format="value(projectNumber)")
+VERTEX_SA="service-${PROJECT_NUMBER}@gcp-sa-aiplatform-cc.iam.gserviceaccount.com"
+
+echo "Vertex AI service account: $VERTEX_SA"
+echo "Granting read access to data bucket..."
+gsutil iam ch serviceAccount:${VERTEX_SA}:objectViewer gs://${SHARED_DATA_BUCKET}
+
+echo "Granting write access to logs bucket..."
+gsutil iam ch serviceAccount:${VERTEX_SA}:objectAdmin gs://${SHARED_LOGS_BUCKET}
+
+echo -e "${GREEN}✓${NC} Vertex AI service account configured"
+
+# Step 6: Verify access to shared resources
+echo ""
+echo "Step 6: Verifying access to shared resources..."
 echo "======================================="
 
 # Test data bucket access
@@ -166,9 +184,9 @@ fi
 
 echo -e "${GREEN}✓${NC} All shared resources accessible"
 
-# Step 6: Create personal configuration file
+# Step 7: Create personal configuration file
 echo ""
-echo "Step 6: Creating your configuration..."
+echo "Step 7: Creating your configuration..."
 echo "======================================="
 
 cat > .teammate_config.env << EOF
@@ -180,10 +198,10 @@ EOF
 
 echo -e "${GREEN}✓${NC} Configuration saved to .teammate_config.env"
 
-# Step 7: Set active project
+# Step 8: Set active project
 gcloud config set project $USER_PROJECT_ID
 
-# Step 8: Summary
+# Step 9: Summary
 echo ""
 echo "=========================================="
 echo "Setup Complete!"
@@ -199,6 +217,6 @@ echo "  ✓ Logs: gs://$SHARED_LOGS_BUCKET/logs/"
 echo ""
 echo -e "${YELLOW}To start training:${NC}"
 echo "  cd .."
-echo "  python vertex_submit.py"
+echo "  python train_remote.py"
 echo ""
 echo "=========================================="
