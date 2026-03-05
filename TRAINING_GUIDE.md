@@ -38,10 +38,10 @@ cd bootstrap && ./setup_teammate.sh
 
 # 2. Submit training (configs auto-load, builds Docker automatically)
 cd /path/to/emg2qwerty
-python vertex_submit.py
+python train_remote.py
 
 # With custom args
-python vertex_submit.py user=generic trainer.max_epochs=200
+python train_remote.py user=generic trainer.max_epochs=200
 
 # Monitor: https://console.cloud.google.com/vertex-ai/training/custom-jobs
 # View logs: https://console.cloud.google.com/vertex-ai/experiments
@@ -161,7 +161,7 @@ Located in `config/`:
 
 **Vertex AI:**
 ```bash
-python vertex_submit.py checkpoint=gs://bucket/logs/2024-03-15/10-30-00/checkpoints/last.ckpt
+python train_remote.py checkpoint=gs://bucket/logs/2024-03-15/10-30-00/checkpoints/last.ckpt
 ```
 
 ### Train on Multiple Users
@@ -171,7 +171,7 @@ python vertex_submit.py checkpoint=gs://bucket/logs/2024-03-15/10-30-00/checkpoi
 ./train_local.sh user=generic trainer.devices=1
 
 # Vertex AI (recommended for multi-user)
-python vertex_submit.py user=generic --machine n1-highmem-8
+python train_remote.py user=generic --machine n1-highmem-8
 ```
 
 ### Hyperparameter Tuning
@@ -184,7 +184,7 @@ done
 
 # On Vertex AI, submit multiple jobs
 for lr in 0.0001 0.0005 0.001; do
-  python vertex_submit.py optimizer.lr=$lr
+  python train_remote.py optimizer.lr=$lr
 done
 ```
 

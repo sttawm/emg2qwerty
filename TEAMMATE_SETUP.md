@@ -43,16 +43,16 @@ You're ready to train.
 cd /path/to/emg2qwerty
 
 # Submit training (default: 40 epochs, single_user, T4 GPU)
-python vertex_submit.py
+python train_remote.py
 
 # With custom args (just like local training)
-python vertex_submit.py user=generic trainer.max_epochs=100
+python train_remote.py user=generic trainer.max_epochs=100
 
 # Different GPU
-python vertex_submit.py --gpu NVIDIA_TESLA_V100
+python train_remote.py --gpu NVIDIA_TESLA_V100
 
 # Spot instances (cheaper, ~70% savings)
-python vertex_submit.py --spot
+python train_remote.py --spot
 ```
 
 ## Monitoring
@@ -79,22 +79,22 @@ gcloud ai custom-jobs stream-logs JOB_NAME --region=us-central1
 
 ```bash
 # Default training
-python vertex_submit.py
+python train_remote.py
 
 # Train on all users
-python vertex_submit.py user=generic
+python train_remote.py user=generic
 
 # More epochs
-python vertex_submit.py trainer.max_epochs=200
+python train_remote.py trainer.max_epochs=200
 
 # Faster GPU
-python vertex_submit.py --gpu NVIDIA_TESLA_V100
+python train_remote.py --gpu NVIDIA_TESLA_V100
 
 # Cheaper (spot instances)
-python vertex_submit.py --spot
+python train_remote.py --spot
 
 # Parameter sweep
-python vertex_submit.py --multirun trainer.max_epochs=50,100,200
+python train_remote.py --multirun trainer.max_epochs=50,100,200
 ```
 
 ## What Gets Shared

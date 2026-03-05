@@ -14,22 +14,67 @@ export HYDRA_FULL_ERROR=1
 
 # Verify shared buckets are set
 if [ -z "$SHARED_DATA_BUCKET" ]; then
-    echo "WARNING: SHARED_DATA_BUCKET not set. Ensure bootstrap/shared_config.env is loaded."
+    echo "ERROR: SHARED_DATA_BUCKET not set. Cannot download GCS data."
+    exit 1
 fi
 if [ -z "$SHARED_LOGS_BUCKET" ]; then
-    echo "WARNING: SHARED_LOGS_BUCKET not set. Ensure bootstrap/shared_config.env is loaded."
+    echo "ERROR: SHARED_LOGS_BUCKET not set. Cannot sync logs to GCS."
+    exit 1
+fi
+if [ -z "$EXPERIMENT_NAME" ]; then
+    echo "WARNING: EXPERIMENT_NAME not set. Using 'default_experiment'."
+    export EXPERIMENT_NAME="default_experiment"
 fi
 
 echo "Starting Vertex AI training job"
+echo "Experiment: $EXPERIMENT_NAME"
 echo "Python version: $(python --version)"
 echo "Working directory: $(pwd)"
+
+# Download data from GCS instead of mounting (FUSE not available in Vertex AI)
+echo "Downloading data from GCS..."
+mkdir -p /tmp/data
+echo "Copying gs://${SHARED_DATA_BUCKET}/data/ to /tmp/data/"
+gsutil -m rsync -r gs://${SHARED_DATA_BUCKET}/data/ /tmp/data/
+
+echo "Data downloaded successfully"
+echo "Dataset files:"
+ls -lh /tmp/data/ | head -10
+echo "..."
+echo "Total data size: $(du -sh /tmp/data/ | cut -f1)"
 
 # Check if running on GPU
 python -c "import torch; print('CUDA available:', torch.cuda.is_available()); print('Device:', torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'CPU')"
 
 echo "Training arguments: $@"
 
+# Start background process to continuously sync logs to GCS
+echo "Starting background log sync to GCS..."
+(
+    while true; do
+        sleep 30
+        if [ -d "/tmp/logs" ]; then
+            gsutil -m rsync -r /tmp/logs/ gs://${SHARED_LOGS_BUCKET}/logs/ 2>/dev/null || true
+        fi
+    done
+) &
+LOG_SYNC_PID=$!
+
 # Run training with cluster=vertex
 python -m emg2qwerty.train cluster=vertex "$@"
 
-echo "Training completed successfully"
+echo "Training completed"
+
+# Kill background sync process
+kill $LOG_SYNC_PID 2>/dev/null || true
+
+# Final sync of logs to GCS
+echo "Final log sync to GCS..."
+if [ -d "/tmp/logs" ]; then
+    gsutil -m rsync -r /tmp/logs/ gs://${SHARED_LOGS_BUCKET}/logs/
+    echo "Logs synced to gs://${SHARED_LOGS_BUCKET}/logs/"
+else
+    echo "Warning: No logs found at /tmp/logs"
+fi
+
+echo "Training job finished"

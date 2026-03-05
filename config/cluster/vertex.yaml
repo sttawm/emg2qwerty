@@ -3,22 +3,18 @@
 # Vertex AI cluster configuration
 # This config is used when training on Google Cloud Vertex AI
 
-# GCS paths use shared team buckets
-# These are set in bootstrap/shared_config.env
-gcs:
-  data_bucket: ${oc.env:SHARED_DATA_BUCKET}  # Shared team data bucket
-  logs_bucket: ${oc.env:SHARED_LOGS_BUCKET}  # Shared team logs bucket
-  data_path: gs://${gcs.data_bucket}/data
-  logs_path: gs://${gcs.logs_bucket}/logs
+# Data is downloaded to /tmp/data by train_vertex.sh
+# Logs organized by experiment name for TensorBoard grouping
 
-# Override dataset root to use GCS
+# Override dataset root to use downloaded data
 dataset:
-  root: ${gcs.data_path}
+  root: /tmp/data
 
-# Override hydra output to use GCS for logs
+# Override hydra output to write logs locally, then sync to GCS
+# Logs organized as: /tmp/logs/{experiment_name}/{date}/{time}
 hydra:
   run:
-    dir: ${gcs.logs_path}/${now:%Y-%m-%d}/${now:%H-%M-%S}
+    dir: /tmp/logs/${oc.env:EXPERIMENT_NAME,default_experiment}/${now:%Y-%m-%d}/${now:%H-%M-%S}
   sweep:
     dir: ${hydra.run.dir}
     subdir: job${hydra.job.num}_${hydra.job.override_dirname}
