@@ -10,6 +10,8 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y \
     git \
     wget \
+    build-essential \
+    cmake \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements first (for better caching)
