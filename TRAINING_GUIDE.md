@@ -71,86 +71,9 @@ This workflow enables the team to:
   - Compute (Vertex AI jobs, billed to personal project)
   - Artifact Registry (Docker images)
 
-**For Team Lead (One-Time Setup):**
-
-```bash
-cd emg2qwerty/bootstrap
-
-# Step 1: Create shared resources
-./setup_shared_resources.sh
-# Creates: shared project, data bucket, logs bucket, TensorBoard
-
-# Step 2: Upload dataset once
-./upload_data.sh /path/to/local/data
-# Uploads to gs://emg2qwerty-team-data/data/
-
-# Step 3: Grant access to each teammate
-./grant_access.sh teammate1@example.com
-./grant_access.sh teammate2@example.com
-
-# Step 4: Share the shared_config.env file
-# This file is committed to git or sent directly
-# Contains: SHARED_DATA_BUCKET, SHARED_LOGS_BUCKET, GCP_REGION
-```
-
-**For Each Teammate (Including Team Lead):**
-
-```bash
-cd emg2qwerty/bootstrap
-
-# Step 1: Ensure you have shared_config.env
-# (Should be in git repo or received from team lead)
-
-# Step 2: Run teammate setup script
-./setup_teammate.sh
-# This will:
-# - Create your personal GCP project (for billing)
-# - Enable required APIs
-# - Create Artifact Registry in your project
-# - Verify access to shared resources
-# - Generate .teammate_config.env (gitignored, personal)
-# - Add environment setup to your shell config
-
-# Step 3: Reload shell or source configs
-source ~/.zshrc  # or ~/.bashrc
-# Or manually:
-source shared_config.env
-source .teammate_config.env
-
-# Step 4: Verify setup
-echo $GCP_PROJECT_ID          # Your personal project
-echo $SHARED_DATA_BUCKET      # Team data bucket
-echo $SHARED_LOGS_BUCKET      # Team logs bucket
-
-# Step 5: Build your Docker image
-cd ..  # back to repo root
-python vertex_submit.py --build
-# Builds and pushes to YOUR Artifact Registry
-# Takes ~5-10 minutes
-
-# Step 6: Submit training job
-python vertex_submit.py --submit --args "trainer.max_epochs=150"
-# Job runs in YOUR project (billed to you)
-# Uses SHARED data bucket
-# Saves logs to SHARED logs bucket
-
-# Step 7: Monitor your job
-gcloud ai custom-jobs list --region=us-central1
-
-# Step 8: View all team experiments in TensorBoard
-# Vertex AI UI: https://console.cloud.google.com/vertex-ai/experiments
-# Or locally: tensorboard --logdir=gs://$SHARED_LOGS_BUCKET/logs
-```
-
-**Key Benefits:**
-- Dataset uploaded once, used by all teammates
-- All experiments visible in one TensorBoard (easy comparison)
-- Each teammate controls their own compute costs
-- No conflicts in job naming (auto-prefixed with teammate name)
-
-**Configuration Files:**
-- `bootstrap/shared_config.env` - Team-wide, committed to git
-- `bootstrap/.teammate_config.env` - Personal, gitignored
+**Setup:**
+- **Team lead**: See `TEAM_LEAD_GUIDE.md`
+- **Teammates**: See `TEAMMATE_SETUP.md`
 
 ### Local Development Workflow
 
@@ -282,8 +205,7 @@ export TEAMMATE_NAME="your-name"
 
 **Vertex AI:**
 ```bash
-python vertex_submit.py --submit \
-  --args "checkpoint=gs://bucket/logs/2024-03-15/10-30-00/checkpoints/last.ckpt"
+python vertex_submit.py checkpoint=gs://bucket/logs/2024-03-15/10-30-00/checkpoints/last.ckpt
 ```
 
 ### Train on Multiple Users
@@ -293,7 +215,7 @@ python vertex_submit.py --submit \
 ./train_local.sh user=generic trainer.devices=1
 
 # Vertex AI (recommended for multi-user)
-python vertex_submit.py --submit --args "user=generic" --machine n1-highmem-8
+python vertex_submit.py user=generic --machine n1-highmem-8
 ```
 
 ### Hyperparameter Tuning
@@ -306,7 +228,7 @@ done
 
 # On Vertex AI, submit multiple jobs
 for lr in 0.0001 0.0005 0.001; do
-  python vertex_submit.py --submit --args "optimizer.lr=$lr"
+  python vertex_submit.py optimizer.lr=$lr
 done
 ```
 
@@ -350,9 +272,7 @@ docker build -t test -f Dockerfile .
 docker run test --help
 
 # Test with small instance
-python vertex_submit.py --submit \
-  --machine n1-standard-2 \
-  --args "trainer.max_epochs=1 batch_size=4"
+python vertex_submit.py --machine n1-standard-2 trainer.max_epochs=1 batch_size=4
 
 # Stream logs in real-time
 gcloud ai custom-jobs stream-logs JOB_NAME --region=us-central1
