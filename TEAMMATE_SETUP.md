@@ -57,11 +57,19 @@ python train_remote.py --spot
 
 ## Monitoring
 
+**View training metrics (TensorBoard):**
+```bash
+# Install gcsfs if you haven't already
+pip install gcsfs
+
+# Launch TensorBoard connected to remote logs
+tensorboard --logdir=gs://emg2qwerty-team-logs/logs/
+
+# Open http://localhost:6006
+```
+
 **View your jobs:**
 https://console.cloud.google.com/vertex-ai/training/custom-jobs
-
-**View all team experiments (TensorBoard):**
-https://console.cloud.google.com/vertex-ai/experiments
 
 **Stream logs:**
 ```bash

@@ -43,8 +43,11 @@ python train_remote.py
 # With custom args
 python train_remote.py user=generic trainer.max_epochs=200
 
-# Monitor: https://console.cloud.google.com/vertex-ai/training/custom-jobs
-# View logs: https://console.cloud.google.com/vertex-ai/experiments
+# 3. Monitor with TensorBoard (install gcsfs first: pip install gcsfs)
+tensorboard --logdir=gs://emg2qwerty-team-logs/logs/
+# Open http://localhost:6006
+
+# View jobs: https://console.cloud.google.com/vertex-ai/training/custom-jobs
 ```
 
 ## Local Development Workflow
