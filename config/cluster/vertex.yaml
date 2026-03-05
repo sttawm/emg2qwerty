@@ -1,0 +1,53 @@
+# @package _global_
+
+# Vertex AI cluster configuration
+# This config is used when training on Google Cloud Vertex AI
+
+# GCS paths use shared team buckets
+# These are set in bootstrap/shared_config.env
+gcs:
+  data_bucket: ${oc.env:SHARED_DATA_BUCKET}  # Shared team data bucket
+  logs_bucket: ${oc.env:SHARED_LOGS_BUCKET}  # Shared team logs bucket
+  data_path: gs://${gcs.data_bucket}/data
+  logs_path: gs://${gcs.logs_bucket}/logs
+
+# Override dataset root to use GCS
+dataset:
+  root: ${gcs.data_path}
+
+# Override hydra output to use GCS for logs
+hydra:
+  run:
+    dir: ${gcs.logs_path}/${now:%Y-%m-%d}/${now:%H-%M-%S}
+  sweep:
+    dir: ${hydra.run.dir}
+    subdir: job${hydra.job.num}_${hydra.job.override_dirname}
+
+# Vertex AI specific trainer config
+trainer:
+  accelerator: gpu
+  devices: 1  # Vertex AI usually provides single GPU per worker
+  num_nodes: 1
+  max_epochs: 40
+  default_root_dir: ${hydra:runtime.output_dir}
+  # Enable checkpointing to GCS
+  enable_checkpointing: True
+
+# Increase num_workers for cloud training
+num_workers: 8  # More workers available on Vertex AI instances
+
+# Callbacks - checkpoints saved to GCS
+callbacks:
+  - _target_: pytorch_lightning.callbacks.LearningRateMonitor
+  - _target_: pytorch_lightning.callbacks.ModelCheckpoint
+    dirpath: ${hydra:runtime.output_dir}/checkpoints
+    monitor: ${monitor_metric}
+    mode: ${monitor_mode}
+    save_last: True
+    save_top_k: 3  # Save top 3 checkpoints
+    verbose: True
+  # Add TensorBoard logger for Vertex AI
+  - _target_: pytorch_lightning.loggers.TensorBoardLogger
+    save_dir: ${hydra:runtime.output_dir}
+    name: tensorboard
+    version: ""
