@@ -100,41 +100,41 @@ tensorboard --logdir=gs://emg2qwerty-team-logs/logs/
 
 ---
 
-## Training on Vertex AI
+## Training Remotely
 
 ### Basic Usage
 
 ```bash
 # Default training (40 epochs, single_user, T4 GPU, spot instance)
-python train_remote.py --spot
-
-# Named experiment (helps organize runs in TensorBoard)
 python train_remote.py --spot --experiment baseline_v1
 
-# With custom args (just like local training)
-python train_remote.py --spot --experiment multi_user user=generic trainer.max_epochs=100
+# Train on all users
+python train_remote.py --spot --experiment multi_user user=generic
+
+# More epochs
+python train_remote.py --spot --experiment long_run trainer.max_epochs=200
 
 # Different GPU (if you have quota)
-python train_remote.py --spot --gpu NVIDIA_TESLA_V100
+python train_remote.py --spot --experiment v100_test --gpu NVIDIA_TESLA_V100
 ```
 
 ### Common Commands
 
 ```bash
-# Default training with spot instances
-python train_remote.py --spot
+# Baseline training
+python train_remote.py --spot --experiment baseline
 
 # Train on all users
-python train_remote.py --spot user=generic
+python train_remote.py --spot --experiment generic_model user=generic
 
-# More epochs
-python train_remote.py --spot trainer.max_epochs=200
+# Longer training
+python train_remote.py --spot --experiment epoch_200 trainer.max_epochs=200
 
 # Faster GPU with spot
-python train_remote.py --spot --gpu NVIDIA_TESLA_V100
+python train_remote.py --spot --experiment v100_baseline --gpu NVIDIA_TESLA_V100
 
 # Experiment with learning rates
-python train_remote.py --spot --experiment lr_sweep optimizer.lr=0.001
+python train_remote.py --spot --experiment lr_0001 optimizer.lr=0.001
 ```
 
 ---
