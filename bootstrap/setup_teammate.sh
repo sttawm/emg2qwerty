@@ -145,27 +145,28 @@ gcloud artifacts repositories add-iam-policy-binding $REGISTRY_NAME \
     --role=roles/artifactregistry.reader \
     --quiet
 
-# Step 5: Grant Vertex AI service account access to shared buckets
+# Step 5: Display Vertex AI service account info
 echo ""
-echo "Step 5: Granting Vertex AI service account access..."
+echo "Step 5: Vertex AI Service Account"
 echo "======================================="
 
 # Get project number (needed for service account email)
 PROJECT_NUMBER=$(gcloud projects describe $USER_PROJECT_ID --format="value(projectNumber)")
 VERTEX_SA="service-${PROJECT_NUMBER}@gcp-sa-aiplatform-cc.iam.gserviceaccount.com"
 
-echo "Vertex AI service account: $VERTEX_SA"
-echo "Granting read access to data bucket..."
-gsutil iam ch serviceAccount:${VERTEX_SA}:objectViewer gs://${SHARED_DATA_BUCKET}
-
-echo "Granting write access to logs bucket..."
-gsutil iam ch serviceAccount:${VERTEX_SA}:objectAdmin gs://${SHARED_LOGS_BUCKET}
-
-echo "Granting you TensorBoard access..."
-gsutil iam ch user:${TEAMMATE_EMAIL}:objectViewer gs://${SHARED_LOGS_BUCKET}
-
-echo -e "${GREEN}✓${NC} Vertex AI service account configured"
-echo -e "${GREEN}✓${NC} TensorBoard access granted to $TEAMMATE_EMAIL"
+echo "Your Vertex AI service account: $VERTEX_SA"
+echo ""
+echo -e "${YELLOW}⚠${NC}  Important: Contact your team lead to complete setup!"
+echo ""
+echo "Send them the following information:"
+echo "  Email: $TEAMMATE_EMAIL"
+echo "  Project ID: $USER_PROJECT_ID"
+echo ""
+echo "They will run:"
+echo "  ./grant_access.sh $TEAMMATE_EMAIL $USER_PROJECT_ID"
+echo ""
+echo "This grants your Vertex AI service account access to shared buckets."
+echo -e "${GREEN}✓${NC} Service account identified"
 
 # Step 6: Verify access to shared resources
 echo ""
@@ -229,8 +230,17 @@ echo -e "${BLUE}Shared Resources:${NC}"
 echo "  ✓ Data: gs://$SHARED_DATA_BUCKET/data/"
 echo "  ✓ Logs: gs://$SHARED_LOGS_BUCKET/logs/"
 echo ""
-echo -e "${YELLOW}To start training:${NC}"
+echo -e "${YELLOW}⚠  IMPORTANT - Contact Team Lead:${NC}"
+echo "  Send them:"
+echo "    Email: $TEAMMATE_EMAIL"
+echo "    Project ID: $USER_PROJECT_ID"
+echo ""
+echo "  They will run:"
+echo "    cd bootstrap"
+echo "    ./grant_access.sh $TEAMMATE_EMAIL $USER_PROJECT_ID"
+echo ""
+echo -e "${YELLOW}After team lead grants access:${NC}"
 echo "  cd .."
-echo "  python train_remote.py"
+echo "  python train_remote.py --spot --experiment my_first_run"
 echo ""
 echo "=========================================="
