@@ -136,6 +136,19 @@ fi
 echo "Configuring Docker authentication..."
 gcloud auth configure-docker ${GCP_REGION}-docker.pkg.dev --quiet 2>/dev/null || true
 
+# Grant Cloud Build service account access to push to Artifact Registry
+echo "Granting Cloud Build access to Artifact Registry..."
+PROJECT_NUMBER=$(gcloud projects describe $USER_PROJECT_ID --format="value(projectNumber)")
+CLOUDBUILD_SA="${PROJECT_NUMBER}@cloudbuild.gserviceaccount.com"
+
+gcloud artifacts repositories add-iam-policy-binding $REGISTRY_NAME \
+    --location=$GCP_REGION \
+    --member=serviceAccount:${CLOUDBUILD_SA} \
+    --role=roles/artifactregistry.writer \
+    --quiet
+
+echo -e "${GREEN}✓${NC} Cloud Build configured"
+
 # Note: Vertex AI service account access will be granted by team lead
 # via ./grant_access.sh after this setup completes
 
