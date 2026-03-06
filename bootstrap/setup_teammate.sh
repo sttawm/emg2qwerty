@@ -135,6 +135,16 @@ fi
 echo "Configuring Docker authentication..."
 gcloud auth configure-docker ${GCP_REGION}-docker.pkg.dev --quiet
 
+# Grant Vertex AI service account access to pull Docker images
+echo "Granting Vertex AI access to Artifact Registry..."
+PROJECT_NUMBER=$(gcloud projects describe $USER_PROJECT_ID --format="value(projectNumber)")
+VERTEX_SA="service-${PROJECT_NUMBER}@gcp-sa-aiplatform-cc.iam.gserviceaccount.com"
+gcloud artifacts repositories add-iam-policy-binding $REGISTRY_NAME \
+    --location=$GCP_REGION \
+    --member=serviceAccount:${VERTEX_SA} \
+    --role=roles/artifactregistry.reader \
+    --quiet
+
 # Step 5: Grant Vertex AI service account access to shared buckets
 echo ""
 echo "Step 5: Granting Vertex AI service account access..."

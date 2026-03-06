@@ -412,6 +412,9 @@ Examples:
             print(f"gcloud ai custom-jobs stream-logs {job_id} --region={REGION}")
         else:
             print(f"gcloud ai custom-jobs stream-logs {args.job_name or 'JOB_ID'} --region={REGION}")
+        print("\nView TensorBoard (real-time metrics):")
+        print("tensorboard --logdir=gs://emg2qwerty-team-logs/logs/")
+        print("# Then open http://localhost:6006")
         print(f"\n{'='*80}\n")
     else:
         print(f"\n✅ Docker image built and pushed successfully!")
