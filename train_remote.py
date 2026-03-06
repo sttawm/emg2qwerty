@@ -110,42 +110,40 @@ def run_command(cmd: list[str], description: str, capture_output: bool = False) 
 
 
 def build_docker_image() -> bool:
-    """Build the Docker image for Vertex AI training"""
-    print("\n🔨 Building Docker image...")
+    """Build the Docker image for Vertex AI training (using Cloud Build)"""
+    print("\n🔨 Building Docker image with Cloud Build...")
+    print("(No local Docker required!)")
 
-    # Build the image
+    # Build using Cloud Build instead of local Docker
     cmd = [
-        "docker", "build",
-        "-t", IMAGE_URI,
-        "-t", IMAGE_URI_LATEST,
-        "-f", "Dockerfile",
+        "gcloud", "builds", "submit",
+        "--project", PROJECT_ID,
+        "--region", REGION,
+        "--tag", IMAGE_URI,
+        "--timeout", "20m",
         "."
     ]
 
-    success, _ = run_command(cmd, "Docker image build")
+    success, _ = run_command(cmd, "Cloud Build image build")
+
+    if success:
+        # Tag as latest
+        print("\n📦 Tagging image as 'latest'...")
+        tag_cmd = [
+            "gcloud", "artifacts", "docker", "tags", "add",
+            IMAGE_URI,
+            IMAGE_URI_LATEST,
+            "--project", PROJECT_ID
+        ]
+        run_command(tag_cmd, "Tag image as latest")
+
     return success
 
 
 def push_docker_image() -> bool:
     """Push the Docker image to Artifact Registry"""
-    print("\n📤 Pushing Docker image to Artifact Registry...")
-
-    # Push timestamped image
-    success, _ = run_command(
-        ["docker", "push", IMAGE_URI],
-        f"Push image {IMAGE_URI}"
-    )
-    if not success:
-        return False
-
-    # Push latest tag
-    success, _ = run_command(
-        ["docker", "push", IMAGE_URI_LATEST],
-        f"Push image {IMAGE_URI_LATEST}"
-    )
-    if not success:
-        return False
-
+    # Cloud Build already pushed the image, so this is a no-op
+    print("\n✓ Image already in Artifact Registry (Cloud Build pushed it)")
     return True
 
 

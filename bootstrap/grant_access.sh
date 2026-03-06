@@ -121,13 +121,23 @@ if [ -n "$TEAMMATE_PROJECT_ID" ]; then
 
         # Ensure service identity exists
         echo "   Creating Vertex AI service identity if needed..."
-        gcloud beta services identity create --service=aiplatform.googleapis.com --project=$TEAMMATE_PROJECT_ID 2>/dev/null || true
+        gcloud beta services identity create --service=aiplatform.googleapis.com --project=$TEAMMATE_PROJECT_ID --quiet 2>&1 | grep -v "already exists" || true
 
         echo "   Granting read access to data bucket..."
         gsutil iam ch serviceAccount:${VERTEX_SA}:objectViewer gs://${SHARED_DATA_BUCKET}
 
         echo "   Granting write access to logs bucket..."
         gsutil iam ch serviceAccount:${VERTEX_SA}:objectAdmin gs://${SHARED_LOGS_BUCKET}
+
+        # Grant access to teammate's Artifact Registry (for pulling Docker images)
+        echo "   Granting Artifact Registry access..."
+        REGISTRY_NAME="emg2qwerty-training"
+        gcloud artifacts repositories add-iam-policy-binding $REGISTRY_NAME \
+            --location=${GCP_REGION} \
+            --project=$TEAMMATE_PROJECT_ID \
+            --member=serviceAccount:${VERTEX_SA} \
+            --role=roles/artifactregistry.reader \
+            --quiet 2>/dev/null || echo "   (Artifact Registry grant may have failed - teammate can do this manually)"
 
         echo "   ✓ Vertex AI service account configured"
     fi

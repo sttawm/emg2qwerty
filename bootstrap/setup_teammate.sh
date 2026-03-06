@@ -102,6 +102,7 @@ APIS=(
     "artifactregistry.googleapis.com"
     "storage.googleapis.com"
     "compute.googleapis.com"
+    "cloudbuild.googleapis.com"
 )
 
 for api in "${APIS[@]}"; do
@@ -131,24 +132,12 @@ else
     echo -e "${GREEN}✓${NC} Artifact Registry created"
 fi
 
-# Configure Docker
+# Configure Docker (not needed for Cloud Build, but useful for local development)
 echo "Configuring Docker authentication..."
-gcloud auth configure-docker ${GCP_REGION}-docker.pkg.dev --quiet
+gcloud auth configure-docker ${GCP_REGION}-docker.pkg.dev --quiet 2>/dev/null || true
 
-# Create Vertex AI service identity
-echo "Creating Vertex AI service identity..."
-gcloud beta services identity create --service=aiplatform.googleapis.com --project=$USER_PROJECT_ID 2>/dev/null || echo "Service identity already exists"
-
-# Grant Vertex AI service account access to pull Docker images
-echo "Granting Vertex AI access to Artifact Registry..."
-PROJECT_NUMBER=$(gcloud projects describe $USER_PROJECT_ID --format="value(projectNumber)")
-VERTEX_SA="service-${PROJECT_NUMBER}@gcp-sa-aiplatform-cc.iam.gserviceaccount.com"
-
-gcloud artifacts repositories add-iam-policy-binding $REGISTRY_NAME \
-    --location=$GCP_REGION \
-    --member=serviceAccount:${VERTEX_SA} \
-    --role=roles/artifactregistry.reader \
-    --quiet
+# Note: Vertex AI service account access will be granted by team lead
+# via ./grant_access.sh after this setup completes
 
 # Step 5: Display Vertex AI service account info
 echo ""
