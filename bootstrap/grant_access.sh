@@ -119,6 +119,10 @@ if [ -n "$TEAMMATE_PROJECT_ID" ]; then
         VERTEX_SA="service-${PROJECT_NUMBER}@gcp-sa-aiplatform-cc.iam.gserviceaccount.com"
         echo "   Vertex AI Service Account: $VERTEX_SA"
 
+        # Ensure service identity exists
+        echo "   Creating Vertex AI service identity if needed..."
+        gcloud beta services identity create --service=aiplatform.googleapis.com --project=$TEAMMATE_PROJECT_ID 2>/dev/null || true
+
         echo "   Granting read access to data bucket..."
         gsutil iam ch serviceAccount:${VERTEX_SA}:objectViewer gs://${SHARED_DATA_BUCKET}
 
