@@ -162,10 +162,14 @@ def submit_training_job(
     """Submit a training job to Vertex AI"""
     print("\n🚀 Submitting training job to Vertex AI...")
 
-    # Generate job name if not provided (include teammate name)
+    # Generate job name if not provided (include teammate name and experiment name)
     if not job_name:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        job_name = f"{TEAMMATE_NAME}_train_{timestamp}"
+        if experiment_name:
+            # Include experiment name in job name for easy identification in console
+            job_name = f"{TEAMMATE_NAME}_{experiment_name}_{timestamp}"
+        else:
+            job_name = f"{TEAMMATE_NAME}_train_{timestamp}"
 
     # Create a temporary config file for the job
     import tempfile
