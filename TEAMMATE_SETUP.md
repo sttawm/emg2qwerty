@@ -2,6 +2,20 @@
 
 Welcome to the team! This guide walks you through local setup first, then cloud training.
 
+## Quick Reference
+
+### Local Training
+```bash
+./train_local.sh user=single_user trainer.max_epochs=50
+```
+
+### Remote Training (Recommended)
+```bash
+python train_remote.py --spot --experiment my_experiment trainer.max_epochs=50
+```
+
+---
+
 ## Prerequisites
 
 - Google account (personal Gmail works fine)
