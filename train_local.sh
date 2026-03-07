@@ -10,5 +10,9 @@ set -e
 
 export HYDRA_FULL_ERROR=1
 
+# Enable MPS fallback for Mac M1/M2/M3 chips
+# Allows unsupported operations to fall back to CPU
+export PYTORCH_ENABLE_MPS_FALLBACK=1
+
 # Run training with cluster=local
 python -m emg2qwerty.train cluster=local "$@"
