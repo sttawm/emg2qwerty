@@ -1,0 +1,20 @@
+# Cloud Build configuration with layer caching
+# This enables fast incremental builds - code changes only rebuild final layers
+
+steps:
+  # Build with Kaniko (caches layers in Artifact Registry)
+  - name: 'gcr.io/kaniko-project/executor:latest'
+    args:
+      - --destination=${_IMAGE_URI}
+      - --cache=true
+      - --cache-ttl=168h  # 7 days
+      - --compressed-caching=false
+    timeout: 1200s  # 20 minutes
+
+# Substitutions (set by train_remote.py)
+substitutions:
+  _IMAGE_URI: 'placeholder'
+
+options:
+  machineType: 'N1_HIGHCPU_8'  # Faster builds
+  logging: CLOUD_LOGGING_ONLY
