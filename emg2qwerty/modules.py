@@ -69,6 +69,9 @@ class RotationInvariantMLP(nn.Module):
         mlp_features: Sequence[int],
         pooling: str = "mean",
         offsets: Sequence[int] = (-1, 0, 1),
+        learnable_offset_weights: bool = False,
+        residual_anchor: bool = False,
+        residual_anchor_init: float = 0.0,
     ) -> None:
         super().__init__()
 
@@ -89,6 +92,29 @@ class RotationInvariantMLP(nn.Module):
 
         self.offsets = offsets if len(offsets) > 0 else (0,)
 
+        self.learnable_offset_weights = learnable_offset_weights
+        self.residual_anchor = residual_anchor
+        self.zero_offset_idx = (
+            self.offsets.index(0) if 0 in self.offsets else None
+        )
+
+        if self.learnable_offset_weights:
+            assert self.pooling == "mean", (
+                "learnable_offset_weights is only supported when pooling='mean'"
+            )
+            self.offset_logits = nn.Parameter(torch.zeros(len(self.offsets)))
+            if self.zero_offset_idx is not None:
+                with torch.no_grad():
+                    self.offset_logits[self.zero_offset_idx] = 1.0
+
+        if self.residual_anchor:
+            assert self.zero_offset_idx is not None, (
+                "residual_anchor requires offsets to include 0"
+            )
+            self.residual_anchor_alpha = nn.Parameter(
+                torch.tensor(float(residual_anchor_init))
+            )
+
     def forward(self, inputs: torch.Tensor) -> torch.Tensor:
         x = inputs  # (T, N, C, ...)
 
@@ -105,9 +131,18 @@ class RotationInvariantMLP(nn.Module):
         # Pool over rotations:
         # (T, N, rotation, mlp_features[-1]) -> (T, N, mlp_features[-1])
         if self.pooling == "max":
-            return x.max(dim=2).values
+            pooled = x.max(dim=2).values
+        elif self.learnable_offset_weights:
+            weights = torch.softmax(self.offset_logits, dim=0).view(1, 1, -1, 1)
+            pooled = (x * weights).sum(dim=2)
         else:
-            return x.mean(dim=2)
+            pooled = x.mean(dim=2)
+
+        if self.residual_anchor:
+            anchor = x[:, :, self.zero_offset_idx]
+            pooled = pooled + self.residual_anchor_alpha * anchor
+
+        return pooled
 
 
 class MultiBandRotationInvariantMLP(nn.Module):
@@ -139,6 +174,9 @@ class MultiBandRotationInvariantMLP(nn.Module):
         mlp_features: Sequence[int],
         pooling: str = "mean",
         offsets: Sequence[int] = (-1, 0, 1),
+        learnable_offset_weights: bool = False,
+        residual_anchor: bool = False,
+        residual_anchor_init: float = 0.0,
         num_bands: int = 2,
         stack_dim: int = 2,
     ) -> None:
@@ -154,6 +192,9 @@ class MultiBandRotationInvariantMLP(nn.Module):
                     mlp_features=mlp_features,
                     pooling=pooling,
                     offsets=offsets,
+                    learnable_offset_weights=learnable_offset_weights,
+                    residual_anchor=residual_anchor,
+                    residual_anchor_init=residual_anchor_init,
                 )
                 for _ in range(num_bands)
             ]

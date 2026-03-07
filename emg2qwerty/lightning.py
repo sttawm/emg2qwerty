@@ -150,6 +150,11 @@ class TDSConvCTCModule(pl.LightningModule):
         optimizer: DictConfig,
         lr_scheduler: DictConfig,
         decoder: DictConfig,
+        rotation_pooling: str = "mean",
+        rotation_offsets: Sequence[int] = (-1, 0, 1),
+        learnable_offset_weights: bool = False,
+        residual_anchor: bool = False,
+        residual_anchor_init: float = 0.0,
     ) -> None:
         super().__init__()
         self.save_hyperparameters()
@@ -165,6 +170,11 @@ class TDSConvCTCModule(pl.LightningModule):
             MultiBandRotationInvariantMLP(
                 in_features=in_features,
                 mlp_features=mlp_features,
+                pooling=rotation_pooling,
+                offsets=rotation_offsets,
+                learnable_offset_weights=learnable_offset_weights,
+                residual_anchor=residual_anchor,
+                residual_anchor_init=residual_anchor_init,
                 num_bands=self.NUM_BANDS,
             ),
             # (T, N, num_features)
