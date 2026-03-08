@@ -213,11 +213,11 @@ class TDSConvCTCModule(pl.LightningModule):
                 block_channels=block_channels,
                 kernel_width=kernel_width,
             ),
-            # LSTM layer
+            # LSTM layers (2 stacked)
             LSTMLayer(
                 input_size=num_features,      # 768
                 hidden_size=lstm_hidden_size,  # 256
-                num_layers=1,
+                num_layers=2,
                 bidirectional=False,
             ),
             # (T, N, num_classes)
