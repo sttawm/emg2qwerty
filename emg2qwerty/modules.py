@@ -145,6 +145,74 @@ class RotationInvariantMLP(nn.Module):
         return pooled
 
 
+class MultiBandMLP(nn.Module):
+    """A `torch.nn.Module` that applies a separate MLP per band for inputs
+    of shape (T, N, num_bands, electrode_channels, ...).
+
+    This is a simplified version without rotation invariance.
+
+    Returns a tensor of shape (T, N, num_bands, mlp_features[-1]).
+
+    Args:
+        in_features (int): Number of input features to the MLP. For an input
+            of shape (T, N, num_bands, C, ...), this should be equal to
+            C * ... (that is, the flattened size from the channel dim onwards).
+        mlp_features (list): List of integers denoting the number of
+            out_features per layer in the MLP.
+        num_bands (int): ``num_bands`` for an input of shape
+            (T, N, num_bands, C, ...). (default: 2)
+        stack_dim (int): The dimension along which the left and right data
+            are stacked. (default: 2)
+    """
+
+    def __init__(
+        self,
+        in_features: int,
+        mlp_features: Sequence[int],
+        num_bands: int = 2,
+        stack_dim: int = 2,
+        **kwargs,  # Accept but ignore rotation invariance args
+    ) -> None:
+        super().__init__()
+        self.num_bands = num_bands
+        self.stack_dim = stack_dim
+
+        # Build MLP layers
+        assert len(mlp_features) > 0
+        mlp_layers: list[nn.Module] = []
+        for out_features in mlp_features:
+            mlp_layers.extend(
+                [
+                    nn.Linear(in_features, out_features),
+                    nn.ReLU(),
+                ]
+            )
+            in_features = out_features
+
+        # One MLP per band (shared weights could be used, but keeping separate for flexibility)
+        self.mlps = nn.ModuleList(
+            [nn.Sequential(*mlp_layers) for _ in range(num_bands)]
+        )
+
+    def forward(self, inputs: torch.Tensor) -> torch.Tensor:
+        # inputs: (T, N, num_bands, C, freq)
+        T, N, bands, C, freq = inputs.shape
+        assert bands == self.num_bands
+
+        # Flatten C and freq dimensions
+        x = inputs.reshape(T, N, bands, C * freq)
+
+        # Apply MLP per band
+        outputs_per_band = []
+        for i in range(self.num_bands):
+            band_input = x[:, :, i, :]  # (T, N, C*freq)
+            band_output = self.mlps[i](band_input)  # (T, N, mlp_features[-1])
+            outputs_per_band.append(band_output)
+
+        # Stack bands back together
+        return torch.stack(outputs_per_band, dim=2)  # (T, N, num_bands, mlp_features[-1])
+
+
 class MultiBandRotationInvariantMLP(nn.Module):
     """A `torch.nn.Module` that applies a separate instance of
     `RotationInvariantMLP` per band for inputs of shape
