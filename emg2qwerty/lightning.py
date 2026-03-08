@@ -29,6 +29,44 @@ from emg2qwerty.modules import (
 from emg2qwerty.transforms import Transform
 
 
+class LSTMLayer(nn.Module):
+    """Wrapper around nn.LSTM that returns only the output tensor for nn.Sequential.
+
+    Args:
+        input_size (int): Input feature dimension
+        hidden_size (int): Hidden state dimension
+        num_layers (int): Number of stacked LSTM layers (default: 1)
+        bidirectional (bool): Use bidirectional LSTM (default: False)
+        dropout (float): Dropout probability between LSTM layers (default: 0.0)
+    """
+
+    def __init__(
+        self,
+        input_size: int,
+        hidden_size: int,
+        num_layers: int = 1,
+        bidirectional: bool = False,
+        dropout: float = 0.0,
+    ) -> None:
+        super().__init__()
+        self.lstm = nn.LSTM(
+            input_size=input_size,
+            hidden_size=hidden_size,
+            num_layers=num_layers,
+            bidirectional=bidirectional,
+            dropout=dropout if num_layers > 1 else 0.0,
+            batch_first=False,  # Input format: (T, N, features)
+        )
+        self.hidden_size = hidden_size
+        self.num_directions = 2 if bidirectional else 1
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        # x shape: (T, N, input_size)
+        # LSTM output shape: (T, N, hidden_size * num_directions)
+        output, (h_n, c_n) = self.lstm(x)
+        return output  # Return only the output, discard hidden states
+
+
 class WindowedEMGDataModule(pl.LightningDataModule):
     def __init__(
         self,
@@ -155,6 +193,7 @@ class TDSConvCTCModule(pl.LightningModule):
         self.save_hyperparameters()
 
         num_features = self.NUM_BANDS * mlp_features[-1]
+        lstm_hidden_size = 256  # Hardcoded for now
 
         # Model
         # inputs: (T, N, bands=2, electrode_channels=16, freq)
@@ -174,8 +213,15 @@ class TDSConvCTCModule(pl.LightningModule):
                 block_channels=block_channels,
                 kernel_width=kernel_width,
             ),
+            # LSTM layer
+            LSTMLayer(
+                input_size=num_features,      # 768
+                hidden_size=lstm_hidden_size,  # 256
+                num_layers=1,
+                bidirectional=False,
+            ),
             # (T, N, num_classes)
-            nn.Linear(num_features, charset().num_classes),
+            nn.Linear(lstm_hidden_size, charset().num_classes),
             nn.LogSoftmax(dim=-1),
         )
 
