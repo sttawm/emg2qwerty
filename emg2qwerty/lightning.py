@@ -213,13 +213,15 @@ class TDSConvCTCModule(pl.LightningModule):
                 block_channels=block_channels,
                 kernel_width=kernel_width,
             ),
-            # LSTM layers (2 stacked)
+            # LSTM layer (single layer with dropout for regularization)
             LSTMLayer(
                 input_size=num_features,      # 768
                 hidden_size=lstm_hidden_size,  # 256
-                num_layers=2,
+                num_layers=1,
                 bidirectional=False,
             ),
+            # Dropout for regularization (reduce overfitting)
+            nn.Dropout(p=0.3),
             # (T, N, num_classes)
             nn.Linear(lstm_hidden_size, charset().num_classes),
             nn.LogSoftmax(dim=-1),
