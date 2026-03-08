@@ -29,6 +29,25 @@ def main(config: DictConfig):
 
     # Add working dir to PYTHONPATH
     working_dir = get_original_cwd()
+
+    # Log git commit hash for reproducibility
+    try:
+        import subprocess
+        git_hash = subprocess.check_output(
+            ["git", "rev-parse", "HEAD"],
+            cwd=working_dir,
+            stderr=subprocess.DEVNULL
+        ).decode("utf-8").strip()
+        git_dirty = subprocess.call(
+            ["git", "diff-index", "--quiet", "HEAD", "--"],
+            cwd=working_dir,
+            stderr=subprocess.DEVNULL
+        ) != 0
+        git_status = " (dirty)" if git_dirty else ""
+        log.info(f"Git commit: {git_hash}{git_status}")
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        log.info("Git commit: Not available (not a git repository)")
+
     python_paths = os.environ.get("PYTHONPATH", "").split(os.pathsep)
     if working_dir not in python_paths:
         python_paths.append(working_dir)

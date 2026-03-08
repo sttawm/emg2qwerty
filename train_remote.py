@@ -110,21 +110,21 @@ def run_command(cmd: list[str], description: str, capture_output: bool = False) 
 
 
 def build_docker_image() -> bool:
-    """Build the Docker image for Vertex AI training (using Cloud Build)"""
+    """Build the Docker image for Vertex AI training (using Cloud Build with caching)"""
     print("\n🔨 Building Docker image with Cloud Build...")
-    print("(No local Docker required!)")
+    print("(Layer caching enabled - code changes only rebuild final layers)")
 
-    # Build using Cloud Build instead of local Docker
+    # Build using Cloud Build with cloudbuild.yaml (enables Kaniko caching)
     cmd = [
         "gcloud", "builds", "submit",
         "--project", PROJECT_ID,
         "--region", REGION,
-        "--tag", IMAGE_URI,
-        "--timeout", "20m",
+        "--config", "cloudbuild.yaml",
+        f"--substitutions=_IMAGE_URI={IMAGE_URI}",
         "."
     ]
 
-    success, _ = run_command(cmd, "Cloud Build image build")
+    success, _ = run_command(cmd, "Cloud Build image build with caching")
 
     if success:
         # Tag as latest
