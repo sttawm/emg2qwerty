@@ -22,6 +22,7 @@ from emg2qwerty.charset import charset
 from emg2qwerty.data import LabelData, WindowedEMGDataset
 from emg2qwerty.metrics import CharacterErrorRates
 from emg2qwerty.modules import (
+    GRULayer,
     MultiBandRotationInvariantMLP,
     SpectrogramNorm,
     TDSConvEncoder,
@@ -174,8 +175,15 @@ class TDSConvCTCModule(pl.LightningModule):
                 block_channels=block_channels,
                 kernel_width=kernel_width,
             ),
+            # (T, N, 256)
+            GRULayer(
+                input_size=num_features,
+                hidden_size=256,
+                num_layers=1,
+            ),
+            nn.Dropout(p=0.3),
             # (T, N, num_classes)
-            nn.Linear(num_features, charset().num_classes),
+            nn.Linear(256, charset().num_classes),
             nn.LogSoftmax(dim=-1),
         )
 
