@@ -2,9 +2,15 @@
 lr_scheduler:
   scheduler:
     _target_: torch.optim.lr_scheduler.ReduceLROnPlateau
-    mode: ${monitor_mode}
-    factor: 0.1
-    patience: 10
-    min_lr: 1e-6
-  monitor: ${monitor_metric}
+    mode: min  # Minimize the monitored metric (val/CER)
+    factor: 0.5  # Reduce LR by half when plateau detected
+    patience: 5  # Wait 5 epochs before reducing
+    threshold: 0.02  # Minimum change to count as improvement (2% CER)
+    threshold_mode: abs  # Absolute change, not relative
+    cooldown: 0  # Epochs to wait after LR reduction before resuming monitoring
+    verbose: True  # Print when LR is reduced
+    # No min_lr - allow unlimited reductions
+  monitor: ${monitor_metric}  # val/CER
   interval: epoch
+  frequency: 1
+  strict: True

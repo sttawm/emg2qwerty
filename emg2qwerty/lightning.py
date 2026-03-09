@@ -220,8 +220,8 @@ class TDSConvCTCModule(pl.LightningModule):
                 num_layers=1,
                 bidirectional=False,
             ),
-            # Dropout for regularization (reduce overfitting)
-            nn.Dropout(p=0.3),
+            # # Dropout for regularization (reduce overfitting)
+            # nn.Dropout(p=0.3),
             # (T, N, num_classes)
             nn.Linear(lstm_hidden_size, charset().num_classes),
             nn.LogSoftmax(dim=-1),
