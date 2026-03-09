@@ -188,12 +188,14 @@ class TDSConvCTCModule(pl.LightningModule):
         optimizer: DictConfig,
         lr_scheduler: DictConfig,
         decoder: DictConfig,
+        lstm_bidirectional: bool = False,
     ) -> None:
         super().__init__()
         self.save_hyperparameters()
 
         num_features = self.NUM_BANDS * mlp_features[-1]
         lstm_hidden_size = 256  # Hardcoded for now
+        lstm_output_size = lstm_hidden_size * (2 if lstm_bidirectional else 1)
 
         # Model
         # inputs: (T, N, bands=2, electrode_channels=16, freq)
@@ -218,12 +220,12 @@ class TDSConvCTCModule(pl.LightningModule):
                 input_size=num_features,      # 768
                 hidden_size=lstm_hidden_size,  # 256
                 num_layers=1,
-                bidirectional=False,
+                bidirectional=lstm_bidirectional,
             ),
             # # Dropout for regularization (reduce overfitting)
             # nn.Dropout(p=0.3),
             # (T, N, num_classes)
-            nn.Linear(lstm_hidden_size, charset().num_classes),
+            nn.Linear(lstm_output_size, charset().num_classes),
             nn.LogSoftmax(dim=-1),
         )
 
