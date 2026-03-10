@@ -7,7 +7,9 @@ module:
   kernel_width: 32  # Total temporal receptive field of 125 samples given 4 layers
 
   # LSTM parameters
-  lstm_bidirectional: false  # Set to true for bidirectional LSTM
+  lstm_bidirectional: false
+  lstm_num_layers: 1
+  lstm_dropout: 0.0
 
 datamodule:
   _target_: emg2qwerty.lightning.WindowedEMGDataModule

@@ -22,7 +22,7 @@ trainer:
   devices: 1
   num_nodes: 1
   min_epochs: 50
-  max_epochs: 70
+  max_epochs: 200
   default_root_dir: ${hydra:runtime.output_dir}
 
 callbacks:
@@ -37,6 +37,7 @@ callbacks:
     monitor: ${early_stop_metric}
     mode: min
     patience: 10
+    min_delta: 0.03
     verbose: True
 
 dataset:

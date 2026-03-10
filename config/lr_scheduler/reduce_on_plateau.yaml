@@ -5,7 +5,7 @@ lr_scheduler:
     mode: min  # Minimize the monitored metric (val/CER)
     factor: 0.5  # Reduce LR by half when plateau detected
     patience: 5  # Wait 5 epochs before reducing
-    threshold: 0.02  # Minimum change to count as improvement (2% CER)
+    threshold: 0.03  # Minimum change to count as improvement
     threshold_mode: abs  # Absolute change, not relative
     cooldown: 0  # Epochs to wait after LR reduction before resuming monitoring
     verbose: True  # Print when LR is reduced
