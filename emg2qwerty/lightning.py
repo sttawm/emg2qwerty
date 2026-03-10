@@ -189,6 +189,8 @@ class TDSConvCTCModule(pl.LightningModule):
         lr_scheduler: DictConfig,
         decoder: DictConfig,
         lstm_bidirectional: bool = False,
+        lstm_num_layers: int = 1,
+        lstm_dropout: float = 0.0,
     ) -> None:
         super().__init__()
         self.save_hyperparameters()
@@ -215,13 +217,12 @@ class TDSConvCTCModule(pl.LightningModule):
                 block_channels=block_channels,
                 kernel_width=kernel_width,
             ),
-            # LSTM layer (two layers with dropout for regularization)
             LSTMLayer(
-                input_size=num_features,      # 768
-                hidden_size=lstm_hidden_size,  # 256
-                num_layers=2,
+                input_size=num_features,
+                hidden_size=lstm_hidden_size,
+                num_layers=lstm_num_layers,
                 bidirectional=lstm_bidirectional,
-                dropout=0.3,  # Dropout between LSTM layers
+                dropout=lstm_dropout,
             ),
             # # Dropout for regularization (reduce overfitting)
             # nn.Dropout(p=0.3),
