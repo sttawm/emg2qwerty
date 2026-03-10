@@ -15,6 +15,7 @@ train: True  # Whether to train or only run validation and test
 checkpoint: null  # Optional path to checkpoint file
 monitor_metric: val/CER
 monitor_mode: min
+early_stop_metric: val/loss
 
 trainer:
   accelerator: gpu
@@ -33,10 +34,9 @@ callbacks:
     save_last: True
     verbose: True
   - _target_: pytorch_lightning.callbacks.EarlyStopping
-    monitor: ${monitor_metric}
-    mode: ${monitor_mode}
-    patience: 10  # Stop if no improvement for 10 epochs
-    min_delta: 0.001  # Minimum change to count as improvement (0.1% CER)
+    monitor: ${early_stop_metric}
+    mode: min
+    patience: 10
     verbose: True
 
 dataset:

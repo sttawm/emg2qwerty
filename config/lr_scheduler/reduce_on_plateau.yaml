@@ -10,7 +10,7 @@ lr_scheduler:
     cooldown: 0  # Epochs to wait after LR reduction before resuming monitoring
     verbose: True  # Print when LR is reduced
     # No min_lr - allow unlimited reductions
-  monitor: ${monitor_metric}  # val/CER
+  monitor: ${early_stop_metric}  # val/loss
   interval: epoch
   frequency: 1
   strict: True
