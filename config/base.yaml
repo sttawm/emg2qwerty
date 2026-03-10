@@ -20,6 +20,7 @@ trainer:
   accelerator: gpu
   devices: 1
   num_nodes: 1
+  min_epochs: 50
   max_epochs: 150
   default_root_dir: ${hydra:runtime.output_dir}
 
