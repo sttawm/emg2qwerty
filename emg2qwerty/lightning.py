@@ -189,7 +189,7 @@ class TDSConvCTCModule(pl.LightningModule):
         lr_scheduler: DictConfig,
         decoder: DictConfig,
         lstm_bidirectional: bool = True,
-        lstm_num_layers: int = 1,
+        lstm_num_layers: int = 2,
         lstm_dropout: float = 0.0,
     ) -> None:
         super().__init__()
