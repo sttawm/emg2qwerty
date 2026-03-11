@@ -155,7 +155,8 @@ def submit_training_job(
     accelerator_count: int = 1,
     training_args: str = "",
     use_spot: bool = False,
-    no_gpu: bool = False
+    no_gpu: bool = False,
+    train_script: Optional[str] = None,
 ) -> tuple[bool, str]:
     """Submit a training job to Vertex AI"""
     print("\n🚀 Submitting training job to Vertex AI...")
@@ -178,13 +179,17 @@ def submit_training_job(
         experiment_name = job_name
 
     # Build container spec with environment variables
+    env = [
+        {"name": "SHARED_DATA_BUCKET", "value": SHARED_DATA_BUCKET},
+        {"name": "SHARED_LOGS_BUCKET", "value": SHARED_LOGS_BUCKET},
+        {"name": "EXPERIMENT_NAME", "value": experiment_name},
+    ]
+    if train_script is not None:
+        env.append({"name": "TRAIN_SCRIPT", "value": train_script})
+
     container_spec = {
         "imageUri": IMAGE_URI,
-        "env": [
-            {"name": "SHARED_DATA_BUCKET", "value": SHARED_DATA_BUCKET},
-            {"name": "SHARED_LOGS_BUCKET", "value": SHARED_LOGS_BUCKET},
-            {"name": "EXPERIMENT_NAME", "value": experiment_name}
-        ]
+        "env": env,
     }
 
     # Add training arguments if provided
@@ -353,6 +358,13 @@ Examples:
         help='Use spot (preemptible) instances (60-70% cheaper but can be interrupted)'
     )
 
+    parser.add_argument(
+        '--train-script',
+        type=str,
+        default=None,
+        help='Override training script (default: python -m emg2qwerty.train). E.g. "python train_fusion.py"'
+    )
+
     # Use parse_known_args to capture training args
     args, training_args = parser.parse_known_args()
     training_args_str = ' '.join(training_args)
@@ -399,7 +411,8 @@ Examples:
             accelerator_count=args.gpu_count,
             training_args=training_args_str,
             use_spot=args.spot,
-            no_gpu=args.no_gpu
+            no_gpu=args.no_gpu,
+            train_script=args.train_script,
         )
         if not success:
             sys.exit(1)

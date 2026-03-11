@@ -74,7 +74,9 @@ LOG_SYNC_PID=$!
 # Run training with cluster=vertex
 # Explicitly override dataset.root to use downloaded data location
 # Override hydra output directory to ensure logs go to /tmp/logs for syncing
-python -m emg2qwerty.train \
+# TRAIN_SCRIPT can be overridden via env var (default: emg2qwerty.train)
+TRAIN_SCRIPT="${TRAIN_SCRIPT:-python -m emg2qwerty.train}"
+$TRAIN_SCRIPT \
   cluster=vertex \
   dataset.root=/tmp/data \
   hydra.run.dir=/tmp/logs/${EXPERIMENT_NAME}/${now:%Y-%m-%d}/${now:%H-%M-%S} \

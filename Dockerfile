@@ -34,9 +34,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY emg2qwerty/ ./emg2qwerty/
 COPY config/ ./config/
 COPY scripts/ ./scripts/
+COPY models/ ./models/
 
-# Copy training script
+# Copy training scripts
 COPY train_vertex.sh .
+COPY train_fusion.py .
 
 # Set Python path
 ENV PYTHONPATH=/app:$PYTHONPATH
