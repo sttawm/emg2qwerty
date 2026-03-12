@@ -220,13 +220,15 @@ class LearnedRotationMLP(nn.Module):
             [self._build_mlp(in_features, mlp_features) for _ in range(num_bands)]
         )
 
-        # Small MLP that predicts one weight per offset per band from the downsampled input.
-        rotation_input_dim = num_bands * in_features
-        self.rotation_predictor = nn.Sequential(
-            nn.Linear(rotation_input_dim, 64),
-            nn.ReLU(),
-            nn.Linear(64, num_bands * len(offsets)),
-        )
+        # One independent rotation predictor per band, each seeing only its own band.
+        self.rotation_predictors = nn.ModuleList([
+            nn.Sequential(
+                nn.Linear(in_features, 64),
+                nn.ReLU(),
+                nn.Linear(64, len(offsets)),
+            )
+            for _ in range(num_bands)
+        ])
 
     @staticmethod
     def _build_mlp(in_features: int, mlp_features: Sequence[int]) -> nn.Sequential:
@@ -240,20 +242,23 @@ class LearnedRotationMLP(nn.Module):
         T, N, B, C, F = inputs.shape
         assert B == self.num_bands
 
-        # 1. Downsample temporally and pool over time → (N, B * C * F)
+        # 1. Downsample temporally and pool over time, per band → (N, B, C * F)
         #    avg_pool1d expects (N, C_in, T)
-        x_t = inputs.permute(1, 2, 3, 4, 0).reshape(N, B * C * F, T)
+        x_t = inputs.permute(1, 2, 3, 4, 0).reshape(N * B, C * F, T)
         x_down = torch.nn.functional.avg_pool1d(
             x_t,
             kernel_size=self.downsample_factor,
             stride=self.downsample_factor,
             ceil_mode=True,
-        )  # (N, B*C*F, T_down)
-        x_pooled = x_down.mean(dim=-1)  # (N, B*C*F)
+        )  # (N*B, C*F, T_down)
+        x_pooled = x_down.mean(dim=-1).reshape(N, B, C * F)  # (N, B, C*F)
 
-        # 2. Predict rotation weights per band, relu + normalize per band
-        weights = self.rotation_predictor(x_pooled)  # (N, B * num_offsets)
-        weights = weights.reshape(N, B, len(self.offsets))  # (N, B, num_offsets)
+        # 2. Predict rotation weights independently per band, relu + normalize
+        band_weights = [
+            predictor(x_pooled[:, b, :])  # (N, num_offsets)
+            for b, predictor in enumerate(self.rotation_predictors)
+        ]
+        weights = torch.stack(band_weights, dim=1)  # (N, B, num_offsets)
         weights = torch.relu(weights)
         weights = weights / (weights.sum(dim=-1, keepdim=True) + 1e-8)
         self.last_weights = weights.detach()  # (N, B, num_offsets) — stashed for logging
