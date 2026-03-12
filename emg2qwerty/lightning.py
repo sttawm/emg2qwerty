@@ -247,7 +247,19 @@ class TDSConvCTCModule(pl.LightningModule):
         if phase == "train":
             rotation_mlp = self.model[1]  # LearnedRotationMLP
             if hasattr(rotation_mlp, "last_weights"):
-                self._rotation_weights_accum.append(rotation_mlp.last_weights.cpu())
+                weights = rotation_mlp.last_weights  # (N, B, num_offsets)
+                self._rotation_weights_accum.append(weights.cpu())
+                # Per-step scalars for time-series analysis (meaningful when shuffle=False)
+                band_names = ["left", "right"]
+                for b, band_name in enumerate(band_names):
+                    for i, offset in enumerate(rotation_mlp.offsets):
+                        self.log(
+                            f"rotation_step/{band_name}/offset_{offset:+d}",
+                            weights[:, b, i].mean(),
+                            on_step=True,
+                            on_epoch=False,
+                            sync_dist=True,
+                        )
 
         return loss
 
