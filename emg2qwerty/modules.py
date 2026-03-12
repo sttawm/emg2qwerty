@@ -220,12 +220,12 @@ class LearnedRotationMLP(nn.Module):
             [self._build_mlp(in_features, mlp_features) for _ in range(num_bands)]
         )
 
-        # Small MLP that predicts one weight per offset from the downsampled input.
+        # Small MLP that predicts one weight per offset per band from the downsampled input.
         rotation_input_dim = num_bands * in_features
         self.rotation_predictor = nn.Sequential(
             nn.Linear(rotation_input_dim, 64),
             nn.ReLU(),
-            nn.Linear(64, len(offsets)),
+            nn.Linear(64, num_bands * len(offsets)),
         )
 
     @staticmethod
@@ -251,11 +251,12 @@ class LearnedRotationMLP(nn.Module):
         )  # (N, B*C*F, T_down)
         x_pooled = x_down.mean(dim=-1)  # (N, B*C*F)
 
-        # 2. Predict rotation weights, relu + normalize by sum
-        weights = self.rotation_predictor(x_pooled)  # (N, num_offsets)
+        # 2. Predict rotation weights per band, relu + normalize per band
+        weights = self.rotation_predictor(x_pooled)  # (N, B * num_offsets)
+        weights = weights.reshape(N, B, len(self.offsets))  # (N, B, num_offsets)
         weights = torch.relu(weights)
         weights = weights / (weights.sum(dim=-1, keepdim=True) + 1e-8)
-        self.last_weights = weights.detach()  # (N, num_offsets) — stashed for logging
+        self.last_weights = weights.detach()  # (N, B, num_offsets) — stashed for logging
 
         # 3. For each offset: shift channels, apply per-band MLP, accumulate
         output = torch.zeros(T, N, B, self.out_features, device=inputs.device, dtype=inputs.dtype)
@@ -269,7 +270,7 @@ class LearnedRotationMLP(nn.Module):
             ]
             shifted_out = torch.stack(band_outputs, dim=2)  # (T, N, B, out_features)
 
-            w = weights[:, i].reshape(1, N, 1, 1)
+            w = weights[:, :, i].reshape(1, N, B, 1)  # per-band weights
             output = output + w * shifted_out
 
         return output  # (T, N, B, mlp_features[-1])

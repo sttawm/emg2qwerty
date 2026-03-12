@@ -247,19 +247,7 @@ class TDSConvCTCModule(pl.LightningModule):
         if phase == "train":
             rotation_mlp = self.model[1]  # LearnedRotationMLP
             if hasattr(rotation_mlp, "last_weights"):
-                weights = rotation_mlp.last_weights  # (N, num_offsets)
-                self._rotation_weights_accum.append(weights.cpu())
-                # Per-step scalar: mean weight per batch for non-zero offsets
-                log_offsets = {-2, -1, 1, 2}
-                for i, offset in enumerate(rotation_mlp.offsets):
-                    if offset in log_offsets:
-                        self.log(
-                            f"rotation_step/offset_{offset:+d}",
-                            weights[:, i].mean(),
-                            on_step=True,
-                            on_epoch=False,
-                            sync_dist=True,
-                        )
+                self._rotation_weights_accum.append(rotation_mlp.last_weights.cpu())
 
         return loss
 
@@ -280,15 +268,17 @@ class TDSConvCTCModule(pl.LightningModule):
     def on_train_epoch_end(self) -> None:
         self._epoch_end("train")
         if self._rotation_weights_accum:
-            # Stack all per-sample weights from this epoch: (total_samples, num_offsets)
+            # Stack all per-sample weights from this epoch: (total_samples, B, num_offsets)
             all_weights = torch.cat(self._rotation_weights_accum, dim=0)
             offsets = self.model[1].offsets
-            for i, offset in enumerate(offsets):
-                self.logger.experiment.add_histogram(
-                    f"rotation/offset_{offset:+d}",
-                    all_weights[:, i],
-                    global_step=self.current_epoch,
-                )
+            band_names = ["left", "right"]
+            for b, band_name in enumerate(band_names):
+                for i, offset in enumerate(offsets):
+                    self.logger.experiment.add_histogram(
+                        f"rotation/{band_name}/offset_{offset:+d}",
+                        all_weights[:, b, i],
+                        global_step=self.current_epoch,
+                    )
             self._rotation_weights_accum.clear()
 
     def on_validation_epoch_end(self) -> None:
