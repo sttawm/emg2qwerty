@@ -22,7 +22,7 @@ from emg2qwerty.charset import charset
 from emg2qwerty.data import LabelData, WindowedEMGDataset
 from emg2qwerty.metrics import CharacterErrorRates
 from emg2qwerty.modules import (
-    MultiBandRotationInvariantMLP,
+    LearnedRotationMLP,
     SpectrogramNorm,
     TDSConvEncoder,
 )
@@ -162,7 +162,7 @@ class TDSConvCTCModule(pl.LightningModule):
             # (T, N, bands=2, C=16, freq)
             SpectrogramNorm(channels=self.NUM_BANDS * self.ELECTRODE_CHANNELS),
             # (T, N, bands=2, mlp_features[-1])
-            MultiBandRotationInvariantMLP(
+            LearnedRotationMLP(
                 in_features=in_features,
                 mlp_features=mlp_features,
                 num_bands=self.NUM_BANDS,

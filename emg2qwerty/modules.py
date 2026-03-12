@@ -169,6 +169,111 @@ class MultiBandRotationInvariantMLP(nn.Module):
         return torch.stack(outputs_per_band, dim=self.stack_dim)
 
 
+class LearnedRotationMLP(nn.Module):
+    """Replaces MultiBandRotationInvariantMLP with a learned soft rotation.
+
+    Rather than pooling over all rotations to achieve rotation invariance, this
+    module learns the optimal rotation from a heavily downsampled view of the
+    input, then applies a weighted combination of circular channel shifts.
+
+    The rotation weights are predicted globally per sequence: the input is
+    downsampled to ~10 samples/sec (by averaging over ``downsample_factor``
+    samples), pooled over time, and fed through a small MLP to produce one
+    weight per offset. Weights are relu'd and normalized by their sum to form
+    a proper weighted average.
+
+    For each offset, the full-resolution input is circularly shifted along the
+    electrode channel dimension, passed through the shared per-band MLP, and
+    accumulated into the weighted output.
+
+    Input:  (T, N, num_bands, electrode_channels, freq)
+    Output: (T, N, num_bands, mlp_features[-1])
+
+    Args:
+        in_features: Flattened feature size per band (electrode_channels * freq).
+        mlp_features: Hidden/output dimensions for the per-band feature MLP.
+        num_bands: Number of bands. (default: 2)
+        offsets: Channel shift offsets to consider. (default: (-2, -1, 0, 1, 2))
+        downsample_factor: Temporal downsampling factor for the rotation
+            predictor. At 2kHz, 200 gives ~10 samples/sec. (default: 200)
+    """
+
+    def __init__(
+        self,
+        in_features: int,
+        mlp_features: Sequence[int],
+        num_bands: int = 2,
+        offsets: Sequence[int] = (-2, -1, 0, 1, 2),
+        downsample_factor: int = 200,
+    ) -> None:
+        super().__init__()
+        assert len(mlp_features) > 0
+
+        self.num_bands = num_bands
+        self.offsets = offsets
+        self.downsample_factor = downsample_factor
+        self.out_features = mlp_features[-1]
+
+        # Per-band feature MLP — same structure as RotationInvariantMLP's inner MLP,
+        # applied independently to each band of each shifted signal.
+        self.band_mlps = nn.ModuleList(
+            [self._build_mlp(in_features, mlp_features) for _ in range(num_bands)]
+        )
+
+        # Small MLP that predicts one weight per offset from the downsampled input.
+        rotation_input_dim = num_bands * in_features
+        self.rotation_predictor = nn.Sequential(
+            nn.Linear(rotation_input_dim, 64),
+            nn.ReLU(),
+            nn.Linear(64, len(offsets)),
+        )
+
+    @staticmethod
+    def _build_mlp(in_features: int, mlp_features: Sequence[int]) -> nn.Sequential:
+        layers: list[nn.Module] = []
+        for out_features in mlp_features:
+            layers.extend([nn.Linear(in_features, out_features), nn.ReLU()])
+            in_features = out_features
+        return nn.Sequential(*layers)
+
+    def forward(self, inputs: torch.Tensor) -> torch.Tensor:
+        T, N, B, C, F = inputs.shape
+        assert B == self.num_bands
+
+        # 1. Downsample temporally and pool over time → (N, B * C * F)
+        #    avg_pool1d expects (N, C_in, T)
+        x_t = inputs.permute(1, 2, 3, 4, 0).reshape(N, B * C * F, T)
+        x_down = torch.nn.functional.avg_pool1d(
+            x_t,
+            kernel_size=self.downsample_factor,
+            stride=self.downsample_factor,
+            ceil_mode=True,
+        )  # (N, B*C*F, T_down)
+        x_pooled = x_down.mean(dim=-1)  # (N, B*C*F)
+
+        # 2. Predict rotation weights, relu + normalize by sum
+        weights = self.rotation_predictor(x_pooled)  # (N, num_offsets)
+        weights = torch.relu(weights)
+        weights = weights / (weights.sum(dim=-1, keepdim=True) + 1e-8)
+
+        # 3. For each offset: shift channels, apply per-band MLP, accumulate
+        output = torch.zeros(T, N, B, self.out_features, device=inputs.device, dtype=inputs.dtype)
+        for i, offset in enumerate(self.offsets):
+            x_shifted = inputs.roll(offset, dims=3)  # (T, N, B, C, F)
+
+            bands = x_shifted.unbind(dim=2)  # B tensors of (T, N, C, F)
+            band_outputs = [
+                mlp(band.flatten(start_dim=2))  # (T, N, C*F) -> (T, N, out_features)
+                for mlp, band in zip(self.band_mlps, bands)
+            ]
+            shifted_out = torch.stack(band_outputs, dim=2)  # (T, N, B, out_features)
+
+            w = weights[:, i].reshape(1, N, 1, 1)
+            output = output + w * shifted_out
+
+        return output  # (T, N, B, mlp_features[-1])
+
+
 class TDSConv2dBlock(nn.Module):
     """A 2D temporal convolution block as per "Sequence-to-Sequence Speech
     Recognition with Time-Depth Separable Convolutions, Hannun et al"
