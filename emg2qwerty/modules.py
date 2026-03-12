@@ -390,3 +390,35 @@ class TDSConvEncoder(nn.Module):
 
     def forward(self, inputs: torch.Tensor) -> torch.Tensor:
         return self.tds_conv_blocks(inputs)  # (T, N, num_features)
+
+
+class LSTMLayer(nn.Module):
+    """Wrapper around nn.LSTM for use in nn.Sequential.
+
+    Args:
+        input_size: Size of input features.
+        hidden_size: Size of hidden state. Output will be hidden_size
+            (or 2 * hidden_size if bidirectional).
+        num_layers: Number of stacked LSTM layers. (default: 1)
+        bidirectional: Whether to use bidirectional LSTM. (default: False)
+    """
+
+    def __init__(
+        self,
+        input_size: int,
+        hidden_size: int,
+        num_layers: int = 1,
+        bidirectional: bool = False,
+    ) -> None:
+        super().__init__()
+        self.lstm = nn.LSTM(
+            input_size=input_size,
+            hidden_size=hidden_size,
+            num_layers=num_layers,
+            bidirectional=bidirectional,
+            batch_first=False,  # (T, N, features)
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        output, _ = self.lstm(x)
+        return output  # (T, N, hidden_size) or (T, N, 2 * hidden_size)
