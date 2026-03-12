@@ -42,6 +42,7 @@ class WindowedEMGDataModule(pl.LightningDataModule):
         train_transform: Transform[np.ndarray, torch.Tensor],
         val_transform: Transform[np.ndarray, torch.Tensor],
         test_transform: Transform[np.ndarray, torch.Tensor],
+        shuffle_train: bool = True,
     ) -> None:
         super().__init__()
 
@@ -58,6 +59,7 @@ class WindowedEMGDataModule(pl.LightningDataModule):
         self.train_transform = train_transform
         self.val_transform = val_transform
         self.test_transform = test_transform
+        self.shuffle_train = shuffle_train
 
     def setup(self, stage: str | None = None) -> None:
         self.train_dataset = ConcatDataset(
@@ -103,7 +105,7 @@ class WindowedEMGDataModule(pl.LightningDataModule):
         return DataLoader(
             self.train_dataset,
             batch_size=self.batch_size,
-            shuffle=True,
+            shuffle=self.shuffle_train,
             num_workers=self.num_workers,
             collate_fn=WindowedEMGDataset.collate,
             pin_memory=True,
@@ -245,7 +247,19 @@ class TDSConvCTCModule(pl.LightningModule):
         if phase == "train":
             rotation_mlp = self.model[1]  # LearnedRotationMLP
             if hasattr(rotation_mlp, "last_weights"):
-                self._rotation_weights_accum.append(rotation_mlp.last_weights.cpu())
+                weights = rotation_mlp.last_weights  # (N, num_offsets)
+                self._rotation_weights_accum.append(weights.cpu())
+                # Per-step scalar: mean weight per batch for non-zero offsets
+                log_offsets = {-2, -1, 1, 2}
+                for i, offset in enumerate(rotation_mlp.offsets):
+                    if offset in log_offsets:
+                        self.log(
+                            f"rotation_step/offset_{offset:+d}",
+                            weights[:, i].mean(),
+                            on_step=True,
+                            on_epoch=False,
+                            sync_dist=True,
+                        )
 
         return loss
 
