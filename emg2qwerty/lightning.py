@@ -194,6 +194,9 @@ class TDSConvCTCModule(pl.LightningModule):
             }
         )
 
+        # Accumulator for rotation weights logged per epoch
+        self._rotation_weights_accum: list[torch.Tensor] = []
+
     def forward(self, inputs: torch.Tensor) -> torch.Tensor:
         return self.model(inputs)
 
@@ -238,6 +241,12 @@ class TDSConvCTCModule(pl.LightningModule):
             metrics.update(prediction=predictions[i], target=target)
 
         self.log(f"{phase}/loss", loss, batch_size=N, sync_dist=True)
+
+        if phase == "train":
+            rotation_mlp = self.model[1]  # LearnedRotationMLP
+            if hasattr(rotation_mlp, "last_weights"):
+                self._rotation_weights_accum.append(rotation_mlp.last_weights.cpu())
+
         return loss
 
     def _epoch_end(self, phase: str) -> None:
@@ -256,6 +265,17 @@ class TDSConvCTCModule(pl.LightningModule):
 
     def on_train_epoch_end(self) -> None:
         self._epoch_end("train")
+        if self._rotation_weights_accum:
+            # Stack all per-sample weights from this epoch: (total_samples, num_offsets)
+            all_weights = torch.cat(self._rotation_weights_accum, dim=0)
+            offsets = self.model[1].offsets
+            for i, offset in enumerate(offsets):
+                self.logger.experiment.add_histogram(
+                    f"rotation/offset_{offset:+d}",
+                    all_weights[:, i],
+                    global_step=self.current_epoch,
+                )
+            self._rotation_weights_accum.clear()
 
     def on_validation_epoch_end(self) -> None:
         self._epoch_end("val")

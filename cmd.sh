@@ -2,5 +2,8 @@
 python train_remote.py \
   --spot \
   --gpu NVIDIA_TESLA_V100 \
-  --experiment learned_soft_rotation_tdsconv \
-  trainer.max_epochs=70
+  --experiment learned_soft_rotation_inspect \
+  lr_scheduler=cosine_annealing \
+  optimizer.lr=1e-6 \
+  trainer.max_epochs=10 \
+  "checkpoint='gs://emg2qwerty-team-logs/logs/learned_soft_rotation_tdsconv/checkpoints/last.ckpt'"

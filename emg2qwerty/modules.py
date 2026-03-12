@@ -255,6 +255,7 @@ class LearnedRotationMLP(nn.Module):
         weights = self.rotation_predictor(x_pooled)  # (N, num_offsets)
         weights = torch.relu(weights)
         weights = weights / (weights.sum(dim=-1, keepdim=True) + 1e-8)
+        self.last_weights = weights.detach()  # (N, num_offsets) — stashed for logging
 
         # 3. For each offset: shift channels, apply per-band MLP, accumulate
         output = torch.zeros(T, N, B, self.out_features, device=inputs.device, dtype=inputs.dtype)
