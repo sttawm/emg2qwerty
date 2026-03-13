@@ -42,7 +42,6 @@ class WindowedEMGDataModule(pl.LightningDataModule):
         train_transform: Transform[np.ndarray, torch.Tensor],
         val_transform: Transform[np.ndarray, torch.Tensor],
         test_transform: Transform[np.ndarray, torch.Tensor],
-        shuffle_train: bool = True,
     ) -> None:
         super().__init__()
 
@@ -59,7 +58,6 @@ class WindowedEMGDataModule(pl.LightningDataModule):
         self.train_transform = train_transform
         self.val_transform = val_transform
         self.test_transform = test_transform
-        self.shuffle_train = shuffle_train
 
     def setup(self, stage: str | None = None) -> None:
         self.train_dataset = ConcatDataset(
@@ -105,7 +103,7 @@ class WindowedEMGDataModule(pl.LightningDataModule):
         return DataLoader(
             self.train_dataset,
             batch_size=self.batch_size,
-            shuffle=self.shuffle_train,
+            shuffle=False,
             num_workers=self.num_workers,
             collate_fn=WindowedEMGDataset.collate,
             pin_memory=True,
@@ -249,16 +247,16 @@ class TDSConvCTCModule(pl.LightningModule):
             if hasattr(rotation_mlp, "last_weights"):
                 weights = rotation_mlp.last_weights  # (N, B, num_offsets)
                 self._rotation_weights_accum.append(weights.cpu())
-                # Per-step scalars for time-series analysis (meaningful when shuffle=False)
+                # Per-step scalars logged directly to bypass PL's log_every_n_steps throttle
                 band_names = ["left", "right"]
                 for b, band_name in enumerate(band_names):
                     for i, offset in enumerate(rotation_mlp.offsets):
-                        self.log(
-                            f"rotation_step/{band_name}/offset_{offset:+d}",
-                            weights[:, b, i].mean(),
-                            on_step=True,
-                            on_epoch=False,
-                            sync_dist=True,
+                        sign = "neg" if offset < 0 else "pos"
+                        tag = f"rotation_step/{band_name}/offset_{sign}{abs(offset)}"
+                        self.logger.experiment.add_scalar(
+                            tag,
+                            weights[:, b, i].mean().item(),
+                            global_step=self.global_step,
                         )
 
         return loss
@@ -268,8 +266,18 @@ class TDSConvCTCModule(pl.LightningModule):
         self.log_dict(metrics.compute(), sync_dist=True)
         metrics.reset()
 
-    def training_step(self, *args, **kwargs) -> torch.Tensor:
-        return self._step("train", *args, **kwargs)
+    def training_step(self, batch, batch_idx, *args, **kwargs) -> torch.Tensor:
+        # Log session index based on which ConcatDataset segment we're in
+        cumulative_sizes = self.trainer.datamodule.train_dataset.cumulative_sizes
+        sample_idx = batch_idx * self.trainer.datamodule.batch_size
+        session_idx = next(
+            (i for i, size in enumerate(cumulative_sizes) if sample_idx < size),
+            len(cumulative_sizes) - 1,
+        )
+        self.logger.experiment.add_scalar(
+            "rotation_step/session", session_idx, global_step=self.global_step
+        )
+        return self._step("train", batch, batch_idx, *args, **kwargs)
 
     def validation_step(self, *args, **kwargs) -> torch.Tensor:
         return self._step("val", *args, **kwargs)
