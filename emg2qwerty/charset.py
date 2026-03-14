@@ -298,3 +298,53 @@ class CharacterSet:
 
     def __str__(self) -> str:
         return self.keys_to_str(self.allowed_keys)
+
+
+@dataclass
+class Seq2SeqVocab:
+    """Utility wrapper that augments ``CharacterSet`` with BOS/EOS/PAD tokens
+    for autoregressive encoder-decoder models.
+
+    The base ``CharacterSet`` already contains every printable character plus
+    the CTC blank. Seq2Seq models instead need separate beginning/end markers
+    and an explicit padding id while sharing the same lexical inventory.
+    """
+
+    base_charset: CharacterSet = field(default_factory=charset)
+    pad_token: str = "<pad>"
+    bos_token: str = "<bos>"
+    eos_token: str = "<eos>"
+
+    def __post_init__(self) -> None:
+        self._base_vocab_size = len(self.base_charset)
+        self._special_tokens = (self.pad_token, self.bos_token, self.eos_token)
+
+    @property
+    def vocab_size(self) -> int:
+        """Total number of tokens (base vocab + pad/bos/eos)."""
+        return self._base_vocab_size + len(self._special_tokens)
+
+    @property
+    def pad_id(self) -> int:
+        return self._base_vocab_size
+
+    @property
+    def bos_id(self) -> int:
+        return self._base_vocab_size + 1
+
+    @property
+    def eos_id(self) -> int:
+        return self._base_vocab_size + 2
+
+    def text_to_tokens(self, text: str) -> list[int]:
+        """Convert normalized text into base-vocab token ids."""
+        return self.base_charset.str_to_labels(text)
+
+    def tokens_to_text(self, tokens: Sequence[int]) -> str:
+        """Convert tokens back to text, ignoring special symbols."""
+        base_tokens = [token for token in tokens if token < self._base_vocab_size]
+        return self.base_charset.labels_to_str(base_tokens)
+
+    def strip_special_tokens(self, tokens: Sequence[int]) -> list[int]:
+        """Remove BOS/EOS/PAD ids from a token sequence."""
+        return [token for token in tokens if token < self._base_vocab_size]

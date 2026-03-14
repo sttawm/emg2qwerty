@@ -8,6 +8,7 @@ from collections.abc import Sequence
 
 import torch
 from torch import nn
+import torch.nn.functional as F
 
 
 class SpectrogramNorm(nn.Module):
@@ -278,3 +279,132 @@ class TDSConvEncoder(nn.Module):
 
     def forward(self, inputs: torch.Tensor) -> torch.Tensor:
         return self.tds_conv_blocks(inputs)  # (T, N, num_features)
+   
+class ResBlock(nn.Module):
+    def __init__(
+        self, 
+        in_channels, 
+        out_channels,
+        kernel_size=3,
+        groups=2,
+        downsample=True,
+        ) -> None:
+        super().__init__()
+        
+        pad = kernel_size // 2
+        
+        self.conv1 = nn.Conv1d(
+            in_channels, 
+            out_channels,
+            kernel_size=kernel_size,
+            padding=pad,
+            stride=1 + downsample,
+            groups=groups
+            )
+        
+        self.ln1 = nn.LayerNorm(out_channels)
+
+        self.conv2 = nn.Conv1d(
+            out_channels,
+            out_channels, 
+            kernel_size=kernel_size,
+            padding=pad,
+            stride=1,
+            groups=groups,
+        )
+
+        self.downsample = nn.Conv1d(
+                            in_channels, 
+                            out_channels, 
+                            kernel_size=1,
+                            padding=0,
+                            stride=1 + downsample,
+                            groups=groups,
+                        )
+        
+        self.ln2 = nn.LayerNorm(out_channels)
+        
+    def forward(self, x):
+        out = self.conv1(x)
+        out = out.permute(0, 2, 1)
+        out = self.ln1(out)
+        out = out.permute(0, 2, 1)
+        out = F.relu(out)
+        
+        out = self.conv2(out)
+        out = out.permute(0, 2, 1)
+        out = self.ln2(out)
+        out = out.permute(0, 2, 1)
+        out = F.relu(out)
+        
+        x = self.downsample(x)
+        
+        return out + x
+
+import math
+class PositionalEncoding(nn.Module):
+    def __init__(self, d_model, dropout=0.1, max_len=300000):
+        super(PositionalEncoding, self).__init__()
+        self.dropout = nn.Dropout(p=dropout)
+
+        pe = torch.zeros(max_len, d_model)
+        position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
+        div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model))
+        pe[:, 0::2] = torch.sin(position * div_term)
+        pe[:, 1::2] = torch.cos(position * div_term)
+        pe = pe.unsqueeze(0).transpose(0, 1)
+        self.register_buffer('pe', pe)
+
+    def forward(self, x):
+        x = x + self.pe[:x.size(0), :]
+        return self.dropout(x)
+
+class FrameWiseEncoder(nn.Module):
+    def __init__(
+        self, 
+        in_channels=16*2,
+        block_channels=[64, 128, 256],
+        kernel_size=3,
+        out_features=256,
+        ):
+        super().__init__()
+        
+        # T, batch, bands=2, channels=16, freq
+        
+        self.d_out = out_features
+        
+        channels = [in_channels] + block_channels
+        
+        self.res_blocks = nn.ModuleList()
+        
+        for i in range(len(channels) - 1):
+            self.res_blocks.append(
+                ResBlock(
+                    channels[i], 
+                    channels[i+1], 
+                    kernel_size=kernel_size, 
+                    downsample = (i % 2 == 1),
+                    groups=2,
+                )
+            )
+            
+        self.pool = nn.AdaptiveAvgPool1d(1)
+        
+        self.mlp_out = nn.Linear(channels[-1], self.d_out)
+        
+        self.pos_encoder = PositionalEncoding(self.d_out)
+        
+    def forward(self, x):
+        T, N, nb, channels, freq_bins = x.shape
+        x = x.reshape(-1, nb * channels, freq_bins)
+                
+        for block in self.res_blocks:
+            x = block(x)
+            
+        x = self.pool(x).squeeze(-1)
+        
+        x = self.mlp_out(x)
+        
+        x = x.reshape(T, N, -1) * math.sqrt(self.d_out)
+        
+        return self.pos_encoder(x)
